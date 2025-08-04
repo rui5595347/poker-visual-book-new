@@ -1,11 +1,11 @@
-# chapter_5.py - Poker Range Filtering Visualization (防呆完善版)
+# chapter_5.py - Poker Range Filtering Visualization (Robust Version)
 from dash import dcc, html, Input, Output, State, callback_context
 import dash_bootstrap_components as dbc
 import plotly.graph_objects as go
 import numpy as np
 import pandas as pd
 
-# --------------------------- 基础数据与手牌分类 ---------------------------
+# --------------------------- Basic Hand Grid and Classification ---------------------------
 hand_order = ['A', 'K', 'Q', 'J', 'T', '9', '8', '7', '6', '5', '4', '3', '2']
 n = len(hand_order)
 matrix_hands = []
@@ -23,7 +23,7 @@ for i, r in enumerate(hand_order):
         labels.append(label)
     matrix_hands.append(row)
 
-# --- 前15%标准范围示例 ---
+# --- Top 15% Starting Hand Example ---
 top_15_range = set([
     'AA','KK','QQ','JJ','TT','99','88','AKs','AKo','AQs','AQo','AJs','AJo',
     'KQs','KQo','KJs','KJo','QJs','QJo','ATs','KTs','QTs','JTs','A9s','JTo'
@@ -43,7 +43,7 @@ for h in labels:
         hand_type_dict[h] = 'Air/Other'
 
 def get_range(filters):
-    """根据行为路径过滤范围，若无行为直接返回初始范围"""
+    """Filter hand range by action sequence. Return initial range if no actions."""
     r = set(top_15_range)
     if not filters:
         return r
@@ -54,7 +54,7 @@ def get_range(filters):
     return r
 
 def hand_matrix_figure(current_range):
-    """生成动态高亮矩阵图（全防呆）"""
+    """Generate dynamic matrix highlighting filtered hands (robust)"""
     z = []
     for i, r in enumerate(hand_order):
         row = []
@@ -62,7 +62,6 @@ def hand_matrix_figure(current_range):
             h = matrix_hands[i][j]
             row.append(1 if h in current_range else 0)
         z.append(row)
-    # 若范围全空，则全灰
     if sum(sum(row) for row in z) == 0:
         z = [[0]*n for _ in range(n)]
     colorscale = [[0, '#E0E0E0'], [1, '#29B6F6']]
@@ -74,7 +73,7 @@ def hand_matrix_figure(current_range):
     return fig
 
 def sankey_figure(filters, cur_count, total_count):
-    """构建Sankey流程图数据，防呆（如无行为也正常显示）"""
+    """Construct Sankey diagram of narrowing range process (robust against empty)"""
     stages = ['Start', 'PFR', 'CBet', 'Turn']
     selected = ['Start']
     if "PFR" in filters:
@@ -83,7 +82,6 @@ def sankey_figure(filters, cur_count, total_count):
         selected.append("CBet")
     if "Turn" in filters:
         selected.append("Turn")
-    # node values
     vals = [total_count]
     cur = total_count
     shrink = [1, 0.15, 0.08, 0.05]
@@ -96,7 +94,6 @@ def sankey_figure(filters, cur_count, total_count):
     if len(selected) == 1:
         vals = [total_count, cur_count]
         selected.append("PFR")
-    # Sankey设置
     fig = go.Figure(go.Sankey(
         arrangement = "snap",
         node=dict(
@@ -114,16 +111,15 @@ def sankey_figure(filters, cur_count, total_count):
     return fig
 
 def quality_stats_panel(current_range):
-    """统计范围质量 + 饼图，始终输出非空饼图"""
+    """Range composition statistics and pie chart (fallback safe)"""
     counts = {"Strong Pair":0, "Suited Broadway":0, "Suited Connector":0, "Air/Other":0}
     for h in current_range:
         counts[hand_type_dict[h]] += 1
     total = sum(counts.values())
     shown_total = total if total > 0 else 1
-    text = f"当前剩余组合数 = {total}，占全部起手牌约{100*total/169:.1f}%\n"
+    text = f"Remaining hand types: {total}, covering approximately {100*total/169:.1f}% of all starting hands\n"
     for k in counts:
-        text += f"{k}：{counts[k]}种，占{100*counts[k]/shown_total:.1f}%\n"
-    # 饼图防呆
+        text += f"{k}: {counts[k]} combos, {100*counts[k]/shown_total:.1f}%\n"
     safe_values = list(counts.values())
     if sum(safe_values) == 0:
         safe_values = [1, 0, 0, 0]
@@ -143,7 +139,7 @@ checkboxes = dbc.Checklist(
         {"label": "Flop C-Bet", "value": "CBet"},
         {"label": "Turn Barrel", "value": "Turn"}
     ],
-    value=["PFR"],    # 默认勾选一项，不是空
+    value=["PFR"],  # Default selected to avoid empty state
     inline=True
 )
 preset_buttons = html.Div([
@@ -151,8 +147,8 @@ preset_buttons = html.Div([
     dbc.Button("Loose Passive: Only PFR", id="preset-loose", color="secondary", outline=True),
 ], style={"marginTop": "10px"})
 
-matrix_graph = dcc.Graph(id='range-matrix')
-sankey_graph = dcc.Graph(id='sankey-flow')
+matrix_graph = dcc.Graph(id='range-matrix', style={"height": "440px", "maxHeight": "440px"})
+sankey_graph = dcc.Graph(id='sankey-flow', style={"height": "340px", "maxHeight": "340px"})
 stat_card = dbc.Card([
     dbc.CardHeader("Range Composition Summary"),
     dbc.CardBody([
@@ -161,7 +157,6 @@ stat_card = dbc.Card([
     ])
 ], style={"marginTop": "10px"})
 
-# ...（上面已有内容）
 layout = dbc.Container([
     header,
     intro,
@@ -178,8 +173,7 @@ layout = dbc.Container([
     ], style={'margin': '40px 0 0 0', 'fontSize': '16px', 'textAlign': 'center'})
 ], fluid=True)
 
-
-# --------------------------- 回调实现 ---------------------------
+# --------------------------- Callbacks ---------------------------
 def register_callbacks(app):
     @app.callback(
         Output("filter-actions", "value"),
@@ -188,7 +182,7 @@ def register_callbacks(app):
     def apply_preset(tight_clicks, loose_clicks):
         ctx = callback_context.triggered_id
         if ctx == "preset-tight":
-            return ["PFR","CBet"]
+            return ["PFR", "CBet"]
         elif ctx == "preset-loose":
             return ["PFR"]
         return ["PFR"]
