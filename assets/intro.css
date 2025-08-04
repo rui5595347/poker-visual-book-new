@@ -1,0 +1,11 @@
+/* 1. 关键帧：先下移 + 0 透明 → 回到原位 + 满不透明 */
+@keyframes fadeSlideUp {
+  0%   { opacity: 0; transform: translateY(32px); }
+  100% { opacity: 1; transform: translateY(0);    }
+}
+
+/* 2. 应用到导览卡：默认透明，0.3 s 后播放 0.8 s 动画 */
+.intro-card {
+  opacity: 0;
+  animation: fadeSlideUp 0.8s ease-out 0.3s forwards;
+}
