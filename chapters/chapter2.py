@@ -6,7 +6,10 @@ import re
 
 # ====== Data load ======
 # note: local csv path. I keep it as-is.
-DATA_PATH = r"C:\Users\ray\Desktop\postgraduate learning\dissertation\poker\data\date ready for using.csv"
+import os
+CURRENT_DIR = os.path.dirname(__file__)
+DATA_PATH = os.path.join(CURRENT_DIR, "..", "data", "date_ready_for_using.csv")
+
 df = pd.read_csv(DATA_PATH)
 df.columns = df.columns.str.strip()
 df["hand"] = df["hand"].str.strip()   # keep standard hand code like AJs, T9o
